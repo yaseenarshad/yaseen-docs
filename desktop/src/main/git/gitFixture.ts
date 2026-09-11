@@ -40,6 +40,26 @@ async function runIn(bin: string, root: string, args: string[]): Promise<string>
   return res.stdout.trim()
 }
 
+/**
+ * Removes a throwaway temp dir. On Windows a git that has just exited (or was just killed) still
+ * holds the directory open for a moment, and a push to an unreachable remote leaves a
+ * `git-remote-http` grandchild alive past the parent's timeout, so the recursive delete fails
+ * EBUSY / EPERM. Retried with backoff; a dir that is still held after that is left for the OS temp
+ * cleanup rather than failing a test that already passed its assertions.
+ */
+export async function removeTempDir(dir: string): Promise<void> {
+  try {
+    await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (process.platform === 'win32' && (code === 'EBUSY' || code === 'EPERM' || code === 'ENOTEMPTY')) {
+      console.warn(`[gitFixture] ${dir} is still held by a git process; leaving it to the OS temp cleanup`)
+      return
+    }
+    throw err
+  }
+}
+
 /** A temp repo on `main` with a local identity, ready for `write` + `add` + `commit`. Zero commits until you make one. */
 export async function makeGitRepo(): Promise<GitRepo> {
   const bin = await requireGit()
@@ -50,6 +70,9 @@ export async function makeGitRepo(): Promise<GitRepo> {
   await run(['config', 'user.email', 'test@example.invalid'])
   // A developer with `commit.gpgsign = true` globally would otherwise fail every commit here.
   await run(['config', 'commit.gpgsign', 'false'])
+  // Git for Windows installs with core.autocrlf=true globally; a rebase abort would then re-checkout
+  // LF blobs as CRLF and no working tree could ever be byte-identical (guarantee 1).
+  await run(['config', 'core.autocrlf', 'false'])
   return {
     root,
     write: async (name, content) => {
@@ -58,7 +81,7 @@ export async function makeGitRepo(): Promise<GitRepo> {
       await writeFile(file, content, 'utf8')
     },
     run,
-    cleanup: () => rm(root, { recursive: true, force: true }),
+    cleanup: () => removeTempDir(root),
   }
 }
 
@@ -67,7 +90,7 @@ export async function makeBareRemote(): Promise<BareRemote> {
   const bin = await requireGit()
   const root = await mkdtemp(path.join(tmpdir(), 'mdapp-remote-'))
   await runIn(bin, root, ['init', '--bare', '-b', 'main', '.'])
-  return { url: root, cleanup: () => rm(root, { recursive: true, force: true }) }
+  return { url: root, cleanup: () => removeTempDir(root) }
 }
 
 export async function wireOrigin(repo: GitRepo, remote: BareRemote): Promise<void> {

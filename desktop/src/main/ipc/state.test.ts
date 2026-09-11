@@ -8,6 +8,10 @@ import { CH, type Envelope } from '../../channels'
 import { createStore, type Store } from '../store'
 import { registerStateIpc } from './state'
 
+/** Main resolves every path it stores (`path.resolve`); on Windows that puts a rootless `/v` on the current drive, so expectations resolve the same way. */
+const abs = (p: string): string => path.resolve(p)
+
+
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() },
   BrowserWindow: { getAllWindows: vi.fn(() => []) },
@@ -89,62 +93,62 @@ describe('registerStateIpc', () => {
   })
 
   it('state:push-recent needs an absolute path', async () => {
-    expect(await registered(CH.statePushRecent)({ sender }, '/v')).toEqual(ok(undefined))
-    expect(store.get().recents.map((r) => r.path)).toEqual(['/v'])
+    expect(await registered(CH.statePushRecent)({ sender }, abs('/v'))).toEqual(ok(undefined))
+    expect(store.get().recents.map((r) => r.path)).toEqual([abs('/v')])
     expect(await registered(CH.statePushRecent)({ sender }, 'v')).toEqual(bad('NOT_ABSOLUTE'))
     expect(await registered(CH.statePushRecent)({ sender }, undefined)).toEqual(bad('BAD_REQUEST'))
   })
 
   it('state:remove-recent needs an absolute path and drops the entry (unknown path is a no-op)', async () => {
-    store.pushRecent('/v', 1)
-    store.pushRecent('/w', 2)
-    expect(await registered(CH.stateRemoveRecent)({ sender }, '/v')).toEqual(ok(undefined))
-    expect(store.get().recents.map((r) => r.path)).toEqual(['/w'])
+    store.pushRecent(abs('/v'), 1)
+    store.pushRecent(abs('/w'), 2)
+    expect(await registered(CH.stateRemoveRecent)({ sender }, abs('/v'))).toEqual(ok(undefined))
+    expect(store.get().recents.map((r) => r.path)).toEqual([abs('/w')])
     expect(await registered(CH.stateRemoveRecent)({ sender }, '/gone')).toEqual(ok(undefined))
-    expect(store.get().recents.map((r) => r.path)).toEqual(['/w'])
+    expect(store.get().recents.map((r) => r.path)).toEqual([abs('/w')])
     expect(await registered(CH.stateRemoveRecent)({ sender }, 'v')).toEqual(bad('NOT_ABSOLUTE'))
     expect(await registered(CH.stateRemoveRecent)({ sender }, undefined)).toEqual(bad('BAD_REQUEST'))
   })
 
   it('state:set-folder checks the root and the patch shape', async () => {
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { expanded: ['/v/sub'], lastFile: '/v/a.md' })).toEqual(ok(undefined))
-    expect(store.get().folders['/v']).toEqual({ expanded: ['/v/sub'], lastFile: '/v/a.md', folds: {}, baseGroups: {}, topicsExpanded: [] })
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { lastFile: null })).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].lastFile).toBeNull()
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { expanded: [abs('/v/sub')], lastFile: abs('/v/a.md') })).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')]).toEqual({ expanded: [abs('/v/sub')], lastFile: abs('/v/a.md'), folds: {}, baseGroups: {}, topicsExpanded: [] })
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { lastFile: null })).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].lastFile).toBeNull()
     expect(await registered(CH.stateSetFolder)({ sender }, 'v', {})).toEqual(bad('NOT_ABSOLUTE'))
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', 'nope')).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { expanded: 'nope' })).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { expanded: [1] })).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { lastFile: 5 })).toEqual(bad('BAD_REQUEST'))
-    expect(store.get().folders['/v']).toEqual({ expanded: ['/v/sub'], lastFile: null, folds: {}, baseGroups: {}, topicsExpanded: [] })
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), 'nope')).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { expanded: 'nope' })).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { expanded: [1] })).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { lastFile: 5 })).toEqual(bad('BAD_REQUEST'))
+    expect(store.get().folders[abs('/v')]).toEqual({ expanded: [abs('/v/sub')], lastFile: null, folds: {}, baseGroups: {}, topicsExpanded: [] })
     // The Topics tree's open pages ride the same patch (YAZ-848), checked like `expanded`.
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { topicsExpanded: ['/v/Metrics.md'] })).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].topicsExpanded).toEqual(['/v/Metrics.md'])
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { topicsExpanded: 'nope' })).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolder)({ sender }, '/v', { topicsExpanded: [1] })).toEqual(bad('BAD_REQUEST'))
-    expect(store.get().folders['/v'].topicsExpanded).toEqual(['/v/Metrics.md'])
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { topicsExpanded: [abs('/v/Metrics.md')] })).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].topicsExpanded).toEqual([abs('/v/Metrics.md')])
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { topicsExpanded: 'nope' })).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolder)({ sender }, abs('/v'), { topicsExpanded: [1] })).toEqual(bad('BAD_REQUEST'))
+    expect(store.get().folders[abs('/v')].topicsExpanded).toEqual([abs('/v/Metrics.md')])
   })
 
   it('state:set-folds checks root, file and keys', async () => {
-    expect(await registered(CH.stateSetFolds)({ sender }, '/v', '/v/a.md', ['k1'])).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].folds).toEqual({ '/v/a.md': ['k1'] })
-    expect(await registered(CH.stateSetFolds)({ sender }, '/v', 'a.md', ['k1'])).toEqual(bad('NOT_ABSOLUTE'))
-    expect(await registered(CH.stateSetFolds)({ sender }, '/v', '/v/a.md', 'k1')).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolds)({ sender }, '/v', '/v/a.md', [1])).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetFolds)({ sender }, '/v', '/v/a.md', [])).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].folds).toEqual({})
+    expect(await registered(CH.stateSetFolds)({ sender }, abs('/v'), abs('/v/a.md'), ['k1'])).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].folds).toEqual({ [abs('/v/a.md')]: ['k1'] })
+    expect(await registered(CH.stateSetFolds)({ sender }, abs('/v'), 'a.md', ['k1'])).toEqual(bad('NOT_ABSOLUTE'))
+    expect(await registered(CH.stateSetFolds)({ sender }, abs('/v'), abs('/v/a.md'), 'k1')).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolds)({ sender }, abs('/v'), abs('/v/a.md'), [1])).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetFolds)({ sender }, abs('/v'), abs('/v/a.md'), [])).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].folds).toEqual({})
   })
 
   it('state:set-base-groups checks root, key and collapsed', async () => {
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', '/v/a.md::T', ['v:idea'])).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].baseGroups).toEqual({ '/v/a.md::T': ['v:idea'] })
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, 'v', '/v/a.md::T', ['v:idea'])).toEqual(bad('NOT_ABSOLUTE'))
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', 5, ['v:idea'])).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', '', ['v:idea'])).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', '/v/a.md::T', 'v:idea')).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', '/v/a.md::T', [1])).toEqual(bad('BAD_REQUEST'))
-    expect(await registered(CH.stateSetBaseGroups)({ sender }, '/v', '/v/a.md::T', [])).toEqual(ok(undefined))
-    expect(store.get().folders['/v'].baseGroups).toEqual({})
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), abs('/v/a.md::T'), ['v:idea'])).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].baseGroups).toEqual({ [abs('/v/a.md::T')]: ['v:idea'] })
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, 'v', abs('/v/a.md::T'), ['v:idea'])).toEqual(bad('NOT_ABSOLUTE'))
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), 5, ['v:idea'])).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), '', ['v:idea'])).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), abs('/v/a.md::T'), 'v:idea')).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), abs('/v/a.md::T'), [1])).toEqual(bad('BAD_REQUEST'))
+    expect(await registered(CH.stateSetBaseGroups)({ sender }, abs('/v'), abs('/v/a.md::T'), [])).toEqual(ok(undefined))
+    expect(store.get().folders[abs('/v')].baseGroups).toEqual({})
   })
 
   it('broadcasts state:changed with the new state to every live window, skipping destroyed ones', async () => {
@@ -162,7 +166,7 @@ describe('registerStateIpc', () => {
     // Direct store mutations (the window manager's upserts) broadcast too.
     store.removeWindow('nope') // no change → no broadcast
     expect(live.webContents.send).toHaveBeenCalledTimes(1)
-    store.pushRecent('/v', 1)
+    store.pushRecent(abs('/v'), 1)
     expect(live.webContents.send).toHaveBeenCalledTimes(2)
   })
 })
