@@ -3,8 +3,11 @@
  * absolute, percent-encoded — `yaseendocs:///Users/me/vault/My%20note.md` — no vault id.
  * An optional `?root=` (also a percent-encoded absolute path) overrides which folder the
  * link opens under. Shared so main's parser and the client's generator agree byte-for-byte
- * on one encoding.
+ * on one encoding. A Windows path is absolute by its drive letter or UNC prefix
+ * (`yaseendocs://C:%5Cvault%5Cnote.md`); its separators travel percent-encoded like any other byte.
  */
+
+import { isAbsolutePath } from './paths'
 
 const SCHEME = 'yaseendocs://'
 
@@ -47,11 +50,11 @@ export function parseFileLink(url: string): { path: string; root: string | null 
       const decoded = decode(pair.slice(eq + 1))
       if (decoded === null) return null
       // A non-absolute override could never contain the (absolute) path: no override at all.
-      if (decoded.startsWith('/')) root = decoded
+      if (isAbsolutePath(decoded)) root = decoded
     }
     rest = rest.slice(0, q)
   }
   const path = decode(rest)
-  if (path === null || !path.startsWith('/')) return null
+  if (path === null || !isAbsolutePath(path)) return null
   return { path, root }
 }

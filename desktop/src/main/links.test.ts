@@ -66,3 +66,26 @@ describe('parseFileLink', () => {
     expect(parseFileLink('yaseendocs:///v/a.md?root=')).toEqual({ path: '/v/a.md', root: null })
   })
 })
+
+describe('Windows paths (drive letter or UNC) are absolute too', () => {
+  it.each([
+    ['drive letter', 'C:\\Users\\me\\vault\\My note.md'],
+    ['forward slashes', 'C:/Users/me/vault/a.md'],
+    ['UNC share', '\\\\server\\share\\vault\\a.md'],
+  ])('%s round-trips: %s', (_name, path) => {
+    expect(parseFileLink(fileLink(path))).toEqual({ path, root: null })
+  })
+
+  it('encodes the backslashes so nothing downstream can read them as anything else', () => {
+    expect(fileLink('C:\\v\\a.md')).toBe('yaseendocs://C:%5Cv%5Ca.md')
+  })
+
+  it('accepts a Windows ?root= override and still rejects a relative one', () => {
+    expect(parseFileLink('yaseendocs://C:%5Cv%5Csub%5Ca.md?root=C%3A%5Cv')).toEqual({ path: 'C:\\v\\sub\\a.md', root: 'C:\\v' })
+    expect(parseFileLink('yaseendocs://C:%5Cv%5Ca.md?root=v')).toEqual({ path: 'C:\\v\\a.md', root: null })
+  })
+
+  it('a bare drive-less name is still relative', () => {
+    expect(parseFileLink('yaseendocs://Users%5Cme%5Ca.md')).toBeNull()
+  })
+})

@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync } from 'node:fs'
 import { dirname, isAbsolute } from 'node:path'
+import { pathSep } from '@shared/paths'
 import {
   CONTENT_WIDTHS,
   DEFAULT_SETTINGS,
@@ -376,7 +377,8 @@ export function createStore(filePath: string): Store {
       // file path), so ONE mapping serves both kinds — and it is still one commit, one
       // notify, a no-op when nothing references the path.
       let changed = false
-      const prefix = `${oldPath}/`
+      // The path's own separator: a Windows folder's children are `C:\v\dir\...`, never `.../dir/...`.
+      const prefix = `${oldPath}${pathSep(oldPath)}`
       const remap = (p: string): string => {
         if (p !== oldPath && !p.startsWith(prefix)) return p
         changed = true
@@ -433,7 +435,7 @@ export function createStore(filePath: string): Store {
       // only the mapping differs (drop instead of remap). A FILE's prefix branch is inert
       // (nothing is ever stored under a file path), so one pass serves both kinds.
       let changed = false
-      const prefix = `${deleted}/`
+      const prefix = `${deleted}${pathSep(deleted)}`
       /** Is this stored path the deleted entry, or inside it? */
       const gone = (p: string): boolean => p === deleted || p.startsWith(prefix)
       const drop = (paths: readonly string[]): string[] => {
