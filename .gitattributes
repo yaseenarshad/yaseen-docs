@@ -1,0 +1,14 @@
+# Source is LF in every checkout. Windows machines commonly run git with core.autocrlf=true, and a
+# CRLF working tree broke the tools suite (vitest could not parse the CRLF .mjs) and the fixture
+# comparisons that pin exact bytes; the app itself preserves whatever line endings a note has.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.tgz binary
+*.pdf binary
+*.woff2 binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
