@@ -41,13 +41,20 @@ export interface MenuInputs {
   recents: RecentRoots
   /** Dev builds get View › Toggle Developer Tools. */
   isDev: boolean
+  /**
+   * The OS the menu is for (defaults to this process). macOS keeps its app menu and the
+   * Window-menu roles; Windows and Linux have none of those (`hide`, `zoom`, `front` and a hidden
+   * item's accelerator are all macOS-only), so they get Exit under File and About under Help.
+   */
+  platform?: NodeJS.Platform
 }
 
 /**
  * The whole menu bar as a template. Item `id`s are stable so a live check (Playwright) can
  * drive items through `Menu.getApplicationMenu().getMenuItemById(...)`.
  */
-export function buildMenuTemplate({ recents, isDev }: MenuInputs, handlers: MenuHandlers): MenuItemConstructorOptions[] {
+export function buildMenuTemplate({ recents, isDev, platform = process.platform }: MenuInputs, handlers: MenuHandlers): MenuItemConstructorOptions[] {
+  const mac = platform === 'darwin'
   const recentItems: MenuItemConstructorOptions[] =
     recents.length === 0
       ? [{ label: 'No Recent Folders', enabled: false }]
@@ -58,20 +65,32 @@ export function buildMenuTemplate({ recents, isDev }: MenuInputs, handlers: Menu
           // A programmatic `menuItem.click()` passes NO event at all — that opens in place.
           click: (_item, _win, event) => handlers.openRecent(r.path, event?.altKey === true),
         }))
+  // macOS titles the first menu with the running app's name; off-mac there is no app menu at all.
+  const appMenu: MenuItemConstructorOptions = {
+    label: 'Yaseen Docs',
+    submenu: [
+      { role: 'about' },
+      { type: 'separator' },
+      { role: 'hide' },
+      { role: 'hideOthers' },
+      { role: 'unhide' },
+      { type: 'separator' },
+      { role: 'quit' },
+    ],
+  }
+  // Tab switching (GRO-2232): the visible pair carries the macOS-conventional ⌃Tab / ⌃⇧Tab (Ctrl on
+  // Windows, which is also its convention); hidden duplicates carry the ⌘⇧] / ⌘⇧[ equivalents
+  // (`acceleratorWorksWhenHidden` is macOS-only, so the duplicates are macOS-only too).
+  const tabItems: MenuItemConstructorOptions[] = [
+    { id: 'menu.window.next-tab', label: 'Next Tab', accelerator: 'Control+Tab', click: () => handlers.nextTab() },
+    { id: 'menu.window.prev-tab', label: 'Previous Tab', accelerator: 'Control+Shift+Tab', click: () => handlers.prevTab() },
+  ]
+  const hiddenTabItems: MenuItemConstructorOptions[] = [
+    { id: 'menu.window.next-tab-alt', label: 'Next Tab', accelerator: 'CmdOrCtrl+Shift+]', visible: false, acceleratorWorksWhenHidden: true, click: () => handlers.nextTab() },
+    { id: 'menu.window.prev-tab-alt', label: 'Previous Tab', accelerator: 'CmdOrCtrl+Shift+[', visible: false, acceleratorWorksWhenHidden: true, click: () => handlers.prevTab() },
+  ]
   return [
-    // macOS titles the first menu with the running app's name; the label only matters off-mac.
-    {
-      label: 'Yaseen Docs',
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
-    },
+    ...(mac ? [appMenu] : []),
     {
       label: 'File',
       submenu: [
@@ -89,6 +108,8 @@ export function buildMenuTemplate({ recents, isDev }: MenuInputs, handlers: Menu
         // OS close that windows.ts intercepts for the flush handshake.
         { id: 'menu.file.close-tab', label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => handlers.closeTab() },
         { id: 'menu.file.close-window', role: 'close', label: 'Close Window', accelerator: 'CmdOrCtrl+Shift+W' },
+        // Off-mac the app menu (and its Quit) does not exist: Exit lives at the bottom of File, as on every Windows app.
+        ...(mac ? [] : [{ type: 'separator' } satisfies MenuItemConstructorOptions, { id: 'menu.file.quit', role: 'quit', label: 'Exit' } satisfies MenuItemConstructorOptions]),
       ],
     },
     {
@@ -108,25 +129,24 @@ export function buildMenuTemplate({ recents, isDev }: MenuInputs, handlers: Menu
         { role: 'zoomOut' },
       ],
     },
-    // Top-level role `window` marks this submenu as macOS's Windows menu, so the OS appends the window list.
+    // Top-level role `window` marks this submenu as macOS's Windows menu, so the OS appends the window list;
+    // `zoom` and `front` are macOS roles too, so off-mac the menu is minimize plus the tab items.
+    mac
+      ? {
+          label: 'Window',
+          role: 'window',
+          submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, ...tabItems, ...hiddenTabItems, { type: 'separator' }, { role: 'front' }],
+        }
+      : { label: 'Window', submenu: [{ role: 'minimize' }, { type: 'separator' }, ...tabItems] },
     {
-      label: 'Window',
-      role: 'window',
+      label: 'Help',
+      role: 'help',
       submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        // Tab switching (GRO-2232): the visible pair carries the macOS-conventional ⌃Tab / ⌃⇧Tab;
-        // hidden duplicates carry the ⌘⇧] / ⌘⇧[ equivalents (`acceleratorWorksWhenHidden`, macOS).
-        { id: 'menu.window.next-tab', label: 'Next Tab', accelerator: 'Control+Tab', click: () => handlers.nextTab() },
-        { id: 'menu.window.prev-tab', label: 'Previous Tab', accelerator: 'Control+Shift+Tab', click: () => handlers.prevTab() },
-        { id: 'menu.window.next-tab-alt', label: 'Next Tab', accelerator: 'CmdOrCtrl+Shift+]', visible: false, acceleratorWorksWhenHidden: true, click: () => handlers.nextTab() },
-        { id: 'menu.window.prev-tab-alt', label: 'Previous Tab', accelerator: 'CmdOrCtrl+Shift+[', visible: false, acceleratorWorksWhenHidden: true, click: () => handlers.prevTab() },
-        { type: 'separator' },
-        { role: 'front' },
+        { id: 'menu.help.github', label: 'Yaseen Docs on GitHub', click: () => handlers.openHelp() },
+        // About lives in the app menu on macOS; off-mac Electron shows it as a plain dialog from here.
+        ...(mac ? [] : [{ type: 'separator' } satisfies MenuItemConstructorOptions, { id: 'menu.help.about', role: 'about' } satisfies MenuItemConstructorOptions]),
       ],
     },
-    { label: 'Help', role: 'help', submenu: [{ id: 'menu.help.github', label: 'Yaseen Docs on GitHub', click: () => handlers.openHelp() }] },
   ]
 }
 

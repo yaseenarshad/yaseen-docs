@@ -30,8 +30,8 @@ const RECENTS: RecentRoots = [
   { path: '/vaults/old', lastOpened: 1 },
 ]
 
-function build(recents: RecentRoots = RECENTS, isDev = false, handlers: MenuHandlers = noopHandlers()) {
-  return buildMenuTemplate({ recents, isDev }, handlers)
+function build(recents: RecentRoots = RECENTS, isDev = false, handlers: MenuHandlers = noopHandlers(), platform: NodeJS.Platform = 'darwin') {
+  return buildMenuTemplate({ recents, isDev, platform }, handlers)
 }
 
 function menuOf(template: MenuItemConstructorOptions[], label: string): MenuItemConstructorOptions[] {
@@ -45,6 +45,39 @@ function click(item: MenuItemConstructorOptions | undefined, event: { altKey?: b
   expect(item?.click).toBeTypeOf('function')
   item?.click?.(undefined as never, undefined, event as never)
 }
+
+describe('buildMenuTemplate off-mac (Windows / Linux)', () => {
+  const win = () => build(RECENTS, false, noopHandlers(), 'win32')
+
+  it('has no app menu: five menus, File first', () => {
+    expect(win().map((m) => m.label)).toEqual(['File', 'Edit', 'View', 'Window', 'Help'])
+  })
+
+  it('File ends with Exit (role quit), since the app menu that carried Quit does not exist', () => {
+    const file = menuOf(win(), 'File')
+    const last = file[file.length - 1]
+    expect(last.role).toBe('quit')
+    expect(last.label).toBe('Exit')
+    expect(file[file.length - 2].type).toBe('separator')
+  })
+
+  it('Window has no macOS-only roles and no hidden accelerator duplicates (acceleratorWorksWhenHidden is macOS-only)', () => {
+    const top = win().find((m) => m.label === 'Window')
+    expect(top?.role).toBeUndefined()
+    const items = top?.submenu as MenuItemConstructorOptions[]
+    expect(items.map((i) => i.role ?? i.id ?? i.type)).toEqual(['minimize', 'separator', 'menu.window.next-tab', 'menu.window.prev-tab'])
+    expect(items.find((i) => i.id === 'menu.window.next-tab')?.accelerator).toBe('Control+Tab')
+  })
+
+  it('Help carries About, which macOS keeps in the app menu', () => {
+    expect(menuOf(win(), 'Help').map((i) => i.role ?? i.id ?? i.type)).toEqual(['menu.help.github', 'separator', 'about'])
+  })
+
+  it('defaults the platform to this process', () => {
+    const labels = buildMenuTemplate({ recents: RECENTS, isDev: false }, noopHandlers()).map((m) => m.label)
+    expect(labels[0]).toBe(process.platform === 'darwin' ? 'Yaseen Docs' : 'File')
+  })
+})
 
 describe('buildMenuTemplate', () => {
   it('has the six menus in order', () => {
