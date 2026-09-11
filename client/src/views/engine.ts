@@ -5,6 +5,7 @@ import {
   compile, equals, evaluate, fromYaml, isTruthy, render, stripBrackets,
 } from './expr'
 import { summarize } from './summaries'
+import { comparablePath, stripTrailingSep } from '../lib/paths'
 
 /**
  * Query engine for one Bases view (GRO-2133): filters → values → sort → limit → group → summaries
@@ -125,7 +126,7 @@ export function makeResolver(files: readonly FileValue[], root?: string, opts: R
     shallowest(byBase, r.basename.toLowerCase(), f, depth)
     if (opts.aliases !== false) for (const alias of r.aliases) shallowest(byAlias, alias.toLowerCase(), f, depth)
   }
-  const rootKey = root ? `${root.replace(/\/+$/, '').toLowerCase()}/` : null
+  const rootKey = root ? `${comparablePath(stripTrailingSep(root)).toLowerCase()}/` : null
   const cache = new Map<string, FileValue | null>()
   return target => {
     const hit = cache.get(target)
@@ -135,7 +136,8 @@ export function makeResolver(files: readonly FileValue[], root?: string, opts: R
     if (key) {
       found = byPath.get(key) ?? null
       if (!found) {
-        const rel = normalise(rootKey && key.startsWith(rootKey) ? key.slice(rootKey.length) : key)
+        const keyPath = comparablePath(key)
+        const rel = normalise(rootKey && keyPath.startsWith(rootKey) ? keyPath.slice(rootKey.length) : key)
         found = byRel.get(rel) ?? (rel.includes('/') ? null : byBase.get(rel)?.file ?? null)
       }
       // Aliases last: a page named `CAC` always wins the target `CAC` over one merely aliased so.

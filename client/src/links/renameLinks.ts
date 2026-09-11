@@ -53,7 +53,7 @@ import { resolverFor } from '../views/engine'
 import { folderPageSettingsLinks, mapFolderPageSettingsLinks } from '../views/folderPageSettings'
 import { WIKILINK_RE } from '../editor/wikilink/wikilinkPlugin'
 import { flushRenamedPath } from '../lib/renameContinuity'
-import { basename, stripExt } from '../lib/paths'
+import { basename, pathSep, relativeTo, stripExt } from '../lib/paths'
 import { buildViewOnlyCatalogFromEntries, type ViewOnlyCatalog } from './viewOnlyCatalog'
 
 /** Does this raw link target point at the renamed file? (Wired to THE shared resolver.) */
@@ -246,7 +246,7 @@ function makeResolves({ root, oldPath, kind, records, viewOnlyCatalog }: { root:
   // in that file's own frontmatter and travels with it, so it keeps pointing there. Building
   // the probe without the alias map keeps the dry-run count and the rewrite agreeing on that.
   const resolver = resolverFor(records, root, { aliases: false })
-  const prefix = `${oldPath}/`
+  const prefix = `${oldPath}${pathSep(oldPath)}`
   const isMoved = kind === 'dir' ? (p: string) => p.startsWith(prefix) : (p: string) => p === oldPath
   const targetPaths = new Map<string, string | null>()
   const resolveTargetPath = (t: string): string | null => {
@@ -282,9 +282,9 @@ export function countLinkReferences({ root, oldPath, kind = 'file', records, vie
 
 /** Rewrite every referencing note on disk; see the module doc for the whole discipline. */
 export async function updateLinksAfterRename({ root, oldPath, newPath, kind = 'file', records, viewOnlyCatalog }: UpdateLinksOptions): Promise<RenameRewriteSummary> {
-  const prefix = `${oldPath}/`
+  const prefix = `${oldPath}${pathSep(oldPath)}`
   const mapMoved = kind === 'dir' ? (p: string) => (p.startsWith(prefix) ? newPath + p.slice(oldPath.length) : p) : (p: string) => (p === oldPath ? newPath : p)
-  const relOf = (p: string) => (p.startsWith(`${root}/`) ? p.slice(root.length + 1) : p)
+  const relOf = (p: string) => relativeTo(root, p) ?? p
   const { resolves, resolveTargetPath } = makeResolves({ root, oldPath, kind, records, viewOnlyCatalog })
   // File mode: whether a bare form still wins AFTER the move is decided by RESOLUTION, not
   // text — the post-move record set (the moved record re-pathed) answers it (shallowest rule).

@@ -19,7 +19,7 @@ import { countLinkReferences, renameNotice, updateLinksAfterRename } from './lin
 import { buildViewOnlyCatalog, type ViewOnlyCatalog } from './links/viewOnlyCatalog'
 import { useExternalRenames } from './links/useExternalRenames'
 import { ownsCopyPathHotkey } from './lib/copyPathHotkey'
-import { basename } from './lib/paths'
+import { basename, relativeTo } from './lib/paths'
 import { carryEditorAcrossRename, carryEditorsAcrossDirRename, flushRenamedDir, flushRenamedPath, retireDeletedDir, retireDeletedPath } from './lib/renameContinuity'
 import { EMPTY_SELECTION, orderedSelection } from './lib/selection'
 import { storage } from './lib/storage'
@@ -369,7 +369,7 @@ export function App() {
   // the referencing notes; Dismiss → drop for this session. In-app renames are suppressed
   // through the file:renamed effect below, so their watcher echo never banners.
   const { banner: renameBanner, onSnapshot: onIndexSnapshot, suppress: suppressRenameHypothesis, update: updateRenameBanner, dismiss: dismissRenameBanner } = useExternalRenames(root, setNotice)
-  const relLabel = useCallback((p: string) => (root !== null && p.startsWith(`${root}/`) ? p.slice(root.length + 1) : p), [root])
+  const relLabel = useCallback((p: string) => (root === null ? p : relativeTo(root, p) ?? p), [root])
 
   // In-app rename (Links E1 GRO-2194, folders E1b GRO-2241). `file:renamed` reaches EVERY
   // window (originator included): BEFORE the workspace remap unmounts the old-path editor(s), a

@@ -1,5 +1,6 @@
 import type { FileKind, TreeNode } from '@shared/types'
 import { nameCandidate, type LinkCandidate } from './completion'
+import { relativeTo } from '../lib/paths'
 
 export interface ViewOnlyEntry {
   path: string
@@ -34,8 +35,7 @@ export function buildViewOnlyCatalog(root: string, tree: readonly TreeNode[]): V
 export function buildViewOnlyCatalogFromEntries(root: string, source: readonly ViewOnlyEntry[]): ViewOnlyCatalog {
   const entries = source.map((entry) => ({ ...entry }))
   entries.sort(pathOrder)
-  const prefix = `${root.replace(/\/+$/, '')}/`
-  const relative = (entry: ViewOnlyEntry): string => entry.path.startsWith(prefix) ? entry.path.slice(prefix.length) : entry.name
+  const relative = (entry: ViewOnlyEntry): string => relativeTo(root, entry.path) ?? entry.name
   const depth = (entry: ViewOnlyEntry): number => relative(entry).split('/').length - 1
   const exact = new Map(entries.map((entry) => [relative(entry), entry.path]))
   const winner = new Map<string, ViewOnlyEntry>()

@@ -1,3 +1,4 @@
+import { lastSeparatorIndex } from './paths'
 import { IMAGE_VIEW_EXTENSIONS, MARKDOWN_EXTENSIONS, PDF_EXTENSIONS, TEXT_VIEW_EXTENSIONS, type FileKind } from './types'
 
 /**
@@ -6,7 +7,7 @@ import { IMAGE_VIEW_EXTENSIONS, MARKDOWN_EXTENSIONS, PDF_EXTENSIONS, TEXT_VIEW_E
  * `path.extname`.
  */
 export function fileKind(name: string): FileKind | null {
-  const basename = name.slice(name.lastIndexOf('/') + 1)
+  const basename = name.slice(lastSeparatorIndex(name) + 1)
   const dot = basename.lastIndexOf('.')
   if (dot <= 0) return null
   const ext = basename.slice(dot).toLowerCase()

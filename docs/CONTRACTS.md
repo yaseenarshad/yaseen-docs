@@ -88,7 +88,7 @@ A root switch synchronously clears the old navigation resolver, catalog targets 
 
 ## Bridge API (`window.yaseenDocs`, locked in GRO-2153 — Desktop A1)
 
-The desktop app has no HTTP server (GRO-2095 D2): the renderer is sandboxed and calls the typed bridge the preload installs; `ipcMain.handle` answers from the main process (GRO-2157 deleted the server and every HTTP path). All paths are absolute POSIX paths; no jail — any absolute path is allowed. Every method rejects with a plain `BridgeError { code, message, path?, mtime? }` (`BridgeErrorCode` in `shared/types.ts`, plus `CONFLICT` which carries the disk mtime); the client's `api.ts` wraps it in `BridgeRequestError` (same fields) so the renderer can `instanceof` it.
+The desktop app has no HTTP server (GRO-2095 D2): the renderer is sandboxed and calls the typed bridge the preload installs; `ipcMain.handle` answers from the main process (GRO-2157 deleted the server and every HTTP path). All paths are absolute and in the OS's own spelling (POSIX on a Mac, `C:\vault\note.md` on Windows; `shared/paths.ts` is the separator-tolerant vocabulary both processes use to take them apart); no jail — any absolute path is allowed. Every method rejects with a plain `BridgeError { code, message, path?, mtime? }` (`BridgeErrorCode` in `shared/types.ts`, plus `CONFLICT` which carries the disk mtime); the client's `api.ts` wraps it in `BridgeRequestError` (same fields) so the renderer can `instanceof` it.
 
 | Bridge | Notes |
 |---|---|

@@ -1,4 +1,5 @@
 import type { TreeNode } from '@shared/types'
+import { joinPath, relativeTo, stripTrailingSep } from './paths'
 
 /** Expanded-directory set for the sidebar tree (persisted per root; see storage.ts). */
 export type TreeAction =
@@ -22,12 +23,13 @@ export function treeReducer(expanded: string[], action: TreeAction): string[] {
 
 /** Directories strictly between `root` and `file` (root excluded), outermost first. */
 export function ancestorDirs(root: string, file: string): string[] {
-  let cur = root.replace(/\/+$/, '')
-  if (!file.startsWith(`${cur}/`)) return []
-  const parts = file.slice(cur.length + 1).split('/')
+  const rel = relativeTo(root, file)
+  if (rel === null) return []
+  // Joined in the root's own separator, so each dir matches the tree row's path byte for byte on Windows too.
+  let cur = stripTrailingSep(root)
   const dirs: string[] = []
-  for (const part of parts.slice(0, -1)) {
-    cur = `${cur}/${part}`
+  for (const part of rel.split('/').slice(0, -1)) {
+    cur = joinPath(cur, part)
     dirs.push(cur)
   }
   return dirs

@@ -21,6 +21,7 @@ import { api, BridgeRequestError } from '../../api'
 import { ensureFolder } from '../../views/scaffold'
 import { validateEntryName } from '../../sidebar/createEntry'
 import { linkPageName } from './wikilinkPlugin'
+import { joinPath, relativeTo } from '../../lib/paths'
 
 export type CreateFromLinkResult =
   /** The page exists now — open `path` (`exists` = lost the creation race, equally fine). */
@@ -39,8 +40,8 @@ export type CreateFromLinkResult =
  */
 export function newNoteBase(settings: Pick<SettingsState, 'newNoteLocation' | 'newNoteFolder'>, root: string, activeFile: string | null): string {
   if (settings.newNoteLocation === 'folder') return settings.newNoteFolder
-  if (settings.newNoteLocation === 'current' && activeFile !== null && activeFile.startsWith(`${root}/`)) {
-    const rel = activeFile.slice(root.length + 1)
+  const rel = settings.newNoteLocation === 'current' && activeFile !== null ? relativeTo(root, activeFile) : null
+  if (rel !== null) {
     const cut = rel.lastIndexOf('/')
     return cut === -1 ? '' : rel.slice(0, cut)
   }
@@ -65,7 +66,7 @@ export function planLinkCreation(root: string, target: string, base = ''): { fol
   const last = segments[segments.length - 1]
   const name = /\.(md|markdown)$/i.test(last) ? last : `${last}.md`
   const folder = segments.slice(0, -1).join('/')
-  return { folder, path: `${root}/${folder === '' ? '' : `${folder}/`}${name}` }
+  return { folder, path: joinPath(root, folder, name) }
 }
 
 /** Create the page behind raw `[[inner]]` under `root` — bare targets under `base` — and resolve where to open (see module doc). */

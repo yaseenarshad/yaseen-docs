@@ -148,3 +148,21 @@ describe('renamedPath (Links E1, GRO-2194)', () => {
     expect(renamedPath('/r/Old', 'Old', 'dir')).toBe('/r/Old') // unchanged → caller no-op
   })
 })
+
+describe('Windows paths (the tree hands the sidebar `C:\\...` rows)', () => {
+  it('entryPath joins with a backslash, so the new note is spelled like its tree row', () => {
+    expect(entryPath('C:\\r\\sub', 'note', 'file')).toBe('C:\\r\\sub\\note.md')
+    expect(entryPath('C:\\r\\sub', 'Folder', 'dir')).toBe('C:\\r\\sub\\Folder')
+  })
+
+  it('targetDirFor takes a file row’s real parent instead of chopping a character off', () => {
+    expect(targetDirFor(file('C:\\r\\sub\\a.md'), 'C:\\r')).toBe('C:\\r\\sub')
+    expect(targetDirFor(dir('C:\\r\\sub'), 'C:\\r')).toBe('C:\\r\\sub')
+  })
+
+  it('renameInputName / renamedPath work on the file name, wherever the separator is', () => {
+    expect(renameInputName('C:\\r\\sub\\a.md')).toBe('a')
+    expect(renamedPath('C:\\r\\sub\\a.md', 'b')).toBe('C:\\r\\sub\\b.md')
+    expect(renamedPath('C:\\r\\sub', 'other', 'dir')).toBe('C:\\r\\other')
+  })
+})

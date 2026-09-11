@@ -5,11 +5,14 @@
  * last-file (App.tsx). `encodeURI` keeps `/` readable and encodes spaces.
  */
 
-/** Absolute file path carried by `hash` (location.hash form), or null when it carries none. */
+import { isAbsolutePath } from './paths'
+
+/** Absolute file path carried by `hash` (location.hash form), or null when it carries none (a Windows path starts with its drive, not `/`). */
 export function hashFilePath(hash: string): string | null {
-  if (!hash.startsWith('#/')) return null
+  if (!hash.startsWith('#')) return null
   try {
-    return decodeURI(hash.slice(1))
+    const path = decodeURI(hash.slice(1))
+    return isAbsolutePath(path) ? path : null
   } catch {
     return null
   }

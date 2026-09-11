@@ -5,6 +5,7 @@
  * enforces the same rules again (absolute path, vault extension, no overwrite).
  */
 import { fileKind } from '@shared/fileKind'
+import { basename, dirname, joinPath } from '../lib/paths'
 
 /**
  * What the inline input creates: a markdown note, a folder, or a FOLDER PAGE (🔒 D4, YAZ-841)
@@ -28,7 +29,7 @@ export function validateEntryName(name: string): string | null {
 export function entryPath(parentDir: string, name: string, kind: EntryKind): string {
   let final = name.trim()
   if ((kind === 'file' || kind === 'folderPage') && !/\.(md|markdown)$/i.test(final)) final += '.md'
-  return `${parentDir}/${final}`
+  return joinPath(parentDir, final)
 }
 
 /**
@@ -46,12 +47,12 @@ export interface MenuRow {
 export function targetDirFor(node: MenuRow | null, root: string): string {
   if (node === null) return root
   if (node.type === 'dir') return node.path
-  return node.path.slice(0, node.path.lastIndexOf('/'))
+  return dirname(node.path)
 }
 
 /** Rename-field prefill: Markdown hides its suffix; view-only files show their full filename. */
 export function renameInputName(fileName: string): string {
-  const name = fileName.slice(fileName.lastIndexOf('/') + 1)
+  const name = basename(fileName)
   if (fileKind(name) !== 'markdown') return name
   return name.slice(0, name.lastIndexOf('.'))
 }
@@ -63,13 +64,13 @@ export function renameInputName(fileName: string): string {
  * the old exact suffix only when none is recognized. Directories have no extension logic.
  */
 export function renamedPath(oldPath: string, newName: string, kind: 'file' | 'dir' = 'file'): string {
-  const dir = oldPath.slice(0, oldPath.lastIndexOf('/'))
+  const dir = dirname(oldPath)
   let final = newName.trim()
-  if (kind === 'dir') return `${dir}/${final}`
-  const oldName = oldPath.slice(oldPath.lastIndexOf('/') + 1)
+  if (kind === 'dir') return joinPath(dir, final)
+  const oldName = basename(oldPath)
   if (final === renameInputName(oldName)) return oldPath
   const oldKind = fileKind(oldPath)
   const newKind = fileKind(final)
   if (oldKind === 'markdown' ? newKind !== 'markdown' : newKind === null) final += oldPath.slice(oldPath.lastIndexOf('.'))
-  return `${dir}/${final}`
+  return joinPath(dir, final)
 }

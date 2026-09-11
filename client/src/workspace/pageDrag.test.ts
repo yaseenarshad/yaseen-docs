@@ -29,3 +29,10 @@ describe('private workspace page drag payload', () => {
     })
   })
 })
+
+describe('Windows paths', () => {
+  it('a drive-letter page path is absolute and round-trips', () => {
+    expect(readPageDrag(dataWith(WORKSPACE_PAGE_MIME, JSON.stringify({ path: 'C:\\v\\a.md', owner: 'right' })))).toEqual({ path: 'C:\\v\\a.md', owner: 'right' })
+    expect(readPageDrag(dataWith(WORKSPACE_PAGE_MIME, JSON.stringify({ path: 'v\\a.md', owner: 'right' })))).toBeNull()
+  })
+})
