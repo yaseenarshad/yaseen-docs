@@ -19,3 +19,14 @@ describe('fileHash / hashFilePath', () => {
     expect(hashFilePath('#/bad%2')).toBeNull()
   })
 })
+
+describe('Windows paths in the hash', () => {
+  it('round-trips a drive-letter path (it starts with its drive, not `/`)', () => {
+    const p = 'C:\\Users\\me\\vault\\My note.md'
+    expect(hashFilePath(fileHash(p))).toBe(p)
+  })
+
+  it('still rejects a relative path', () => {
+    expect(hashFilePath('#notes/a.md')).toBeNull()
+  })
+})

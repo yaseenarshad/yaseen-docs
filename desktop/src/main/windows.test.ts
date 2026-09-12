@@ -533,3 +533,25 @@ describe('createWindowManager: routeToFile (E1)', () => {
     expect(w1.webContents.send).toHaveBeenCalledWith(CH.linkNotice, "Can't open link")
   })
 })
+
+describe('resolveLinkTarget with Windows paths', () => {
+  const win = (id: string, root: string | null): WindowEntry => ({ id, root, file: null, tabs: [], rightPanel: defaultRightPanelIdentity(), sidebarCollapsed: false, bounds: { x: 0, y: 0, width: 800, height: 600 } })
+
+  it('finds the open window whose root contains the file, backslashes and all', () => {
+    expect(resolveLinkTarget('C:\\v\\sub\\a.md', [win('w1', 'C:\\v')], [])).toEqual({ kind: 'existing', id: 'w1' })
+    expect(resolveLinkTarget('C:\\v\\sub\\a.md', [win('w1', 'C:\\v\\')], [])).toEqual({ kind: 'existing', id: 'w1' })
+  })
+
+  it('never matches by string prefix alone and ignores drive-letter case', () => {
+    expect(resolveLinkTarget('C:\\vault2\\a.md', [win('w1', 'C:\\vault')], [])).toMatchObject({ kind: 'new', file: 'C:\\vault2\\a.md' })
+    expect(resolveLinkTarget('c:\\v\\a.md', [win('w1', 'C:\\v')], [])).toEqual({ kind: 'existing', id: 'w1' })
+  })
+
+  it.runIf(process.platform === 'win32')('falls back to a new window on the file’s own folder (a native dirname, not a POSIX one)', () => {
+    expect(resolveLinkTarget('C:\\v\\a.md', [], [])).toEqual({ kind: 'new', root: 'C:\\v', file: 'C:\\v\\a.md' })
+  })
+
+  it('a root override matches the exact window whatever its trailing separator', () => {
+    expect(resolveLinkTarget('C:\\v\\a.md', [win('w1', 'C:\\v')], [], 'C:\\v\\')).toEqual({ kind: 'existing', id: 'w1' })
+  })
+})

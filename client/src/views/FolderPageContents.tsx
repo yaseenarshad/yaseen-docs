@@ -25,6 +25,7 @@
  * same snapshot backlinks read, so this block can never disagree with the links above it, and it
  * costs no fetch, no watcher and no IPC of its own.
  */
+import { dirname, joinPath } from '../lib/paths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDecl } from './folderPageSettings'
 import { stringify } from 'yaml'
@@ -410,9 +411,9 @@ async function createMember(
 ): Promise<string> {
   const parts = await newPageFromFolderPage(root, folderPageName, settings, seed.properties)
   const dir = await memberFolder(root, folderPagePath, settings)
-  const taken = new Set(records.filter((r) => r.path.slice(0, r.path.lastIndexOf('/')) === dir).map((r) => r.basename))
+  const taken = new Set(records.filter((r) => dirname(r.path) === dir).map((r) => r.basename))
   const tamed = (name ?? '').replaceAll('/', ' ').trim()
-  const target = `${dir}/${freeName(tamed === '' ? 'Untitled' : tamed, taken)}.md`
+  const target = joinPath(dir, `${freeName(tamed === '' ? 'Untitled' : tamed, taken)}.md`)
   await createNewNote(target, parts.properties, parts.body)
   return target
 }

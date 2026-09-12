@@ -1,3 +1,5 @@
+import { isAbsolutePath } from '../lib/paths'
+
 export const WORKSPACE_PAGE_MIME = 'application/x-yaseen-workspace-page'
 
 export interface PageDrag {
@@ -20,7 +22,7 @@ export function readPageDrag(data: DataTransfer): PageDrag | null {
     if (
       !isRecord(value)
       || typeof value.path !== 'string'
-      || !value.path.startsWith('/')
+      || !isAbsolutePath(value.path)
       || (value.owner !== 'main' && value.owner !== 'right')
     ) return null
     return { path: value.path, owner: value.owner }

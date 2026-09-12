@@ -130,12 +130,33 @@ export async function buildTree(dir: string): Promise<TreeNode[]> {
   return [...dirs.sort(byNameCi), ...files.sort(byNameCi)]
 }
 
+/**
+ * Windows refuses to rename over a file some other process holds open at that instant (an
+ * indexer, a sync client, an antivirus scan, even our own watcher's stat) with a transient
+ * EPERM / EBUSY / EACCES; POSIX renames succeed regardless. These few codes are retried with a
+ * short backoff (about a quarter of a second in all) before the failure is reported.
+ */
+const WINDOWS_RENAME_RETRY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+const RENAME_ATTEMPTS = 6
+
+async function renameOver(tmp: string, file: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await rename(tmp, file)
+      return
+    } catch (err) {
+      if (process.platform !== 'win32' || attempt >= RENAME_ATTEMPTS || !WINDOWS_RENAME_RETRY_CODES.has(errnoCode(err) ?? '')) throw err
+      await new Promise((resolve) => setTimeout(resolve, 15 * attempt))
+    }
+  }
+}
+
 /** Writes `content` to `<file>.tmp-<rand>` then renames over `file`. Parent dir must exist. */
 export async function atomicWrite(file: string, content: string): Promise<{ mtime: number; size: number }> {
   const tmp = `${file}.tmp-${randomBytes(6).toString('hex')}`
   try {
     await writeFile(tmp, content, 'utf8')
-    await rename(tmp, file)
+    await renameOver(tmp, file)
   } catch (err) {
     await unlink(tmp).catch(() => undefined)
     throw err

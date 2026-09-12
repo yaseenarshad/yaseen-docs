@@ -240,7 +240,7 @@ describe('restoreFolderBody: real AI Curriculum regression (YAZ-1034)', () => {
     const fixture = readFileSync(
       resolve('desktop/e2e/fixtures/curriculum-vault/AI Curriculum.md'),
       'utf8',
-    )
+    ).replace(/\r\n/g, '\n') // a Windows checkout with core.autocrlf hands the fixture back CRLF
     const originalOutline = outlineOf(fixture)
     const before = parseFrontmatter(splitFrontmatter(fixture).frontmatter).properties
 

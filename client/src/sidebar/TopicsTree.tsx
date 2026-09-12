@@ -103,6 +103,7 @@ import { RenameInline } from './RenameInline'
 import { canDrop, performMove } from './topicsMove'
 import type { PendingRename, TreeSelection } from './Tree'
 import { flashTreeRows, revealMissingMessage, type SidebarRevealRequest } from './revealRow'
+import { joinPath, relativeTo } from '../lib/paths'
 
 /**
  * The inline "New …" input pending beneath one Topics row (8G-, YAZ-865; YAZ-1080). The anchor
@@ -253,11 +254,8 @@ const diskFolderAncestors = (folder: string): string[] => {
   return paths
 }
 
-/** One normalized boundary between the vault root and the projection's relative disk paths. */
-const diskRootPrefix = (root: string): string => `${root.replace(/\/+$/, '')}/`
-
-/** The projection stays vault-relative; filesystem actions cross to an absolute path here. */
-const absoluteDiskFolder = (root: string, folder: string): string => `${diskRootPrefix(root)}${folder}`
+/** The projection stays vault-relative; filesystem actions cross to an absolute path here, in the root's own separator. */
+const absoluteDiskFolder = (root: string, folder: string): string => joinPath(root, folder)
 
 /** The resolver and the records it was built from, always read together (BacklinksSection's idiom). */
 interface Feed {
@@ -448,9 +446,8 @@ export function TopicsTree({ root, expanded, onExpandedChange, revealRequest, so
   useEffect(() => {
     const anchorPath = creating?.anchorPath
     if (anchorPath === null || anchorPath === undefined) return
-    const prefix = diskRootPrefix(root)
-    if (!anchorPath.startsWith(prefix)) return
-    const folder = anchorPath.slice(prefix.length)
+    const folder = relativeTo(root, anchorPath)
+    if (folder === null) return
     setCollapsedUncategorizedFolders((current) => {
       if (!current.has(folder)) return current
       const opened = new Set(current)

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 vi.mock('electron', () => ({ shell: { openExternal: vi.fn(), openPath: vi.fn() } }))
 
@@ -36,13 +38,15 @@ describe('openLink', () => {
       os,
     )
 
-    expect(os.openPath).toHaveBeenCalledExactlyOnceWith('/vault/Nate-Scrape/JSONs/Gamma Proposal Generation.json')
+    // `path.resolve`: on Windows a rootless POSIX path lands on the current drive (`C:\vault\...`), on a Mac it is itself.
+    expect(os.openPath).toHaveBeenCalledExactlyOnceWith(path.resolve('/vault/Nate-Scrape/JSONs/Gamma Proposal Generation.json'))
     expect(os.openExternal).not.toHaveBeenCalled()
   })
 
+  const local = path.resolve('/tmp/Local File.pdf')
   it.each([
-    ['/tmp/Local%20File.pdf', '/tmp/Local File.pdf'],
-    ['file:///tmp/Local%20File.pdf', '/tmp/Local File.pdf'],
+    ['/tmp/Local%20File.pdf', local],
+    [pathToFileURL(local).href, local],
   ])('opens an absolute local target through the OS file handler: %s', async (href, expected) => {
     const os = host()
 
@@ -68,7 +72,7 @@ describe('openLink', () => {
     expect(os.openPath).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-local file URL as a structured bad request', async () => {
+  it.runIf(process.platform !== 'win32')('rejects a non-local file URL as a structured bad request', async () => {
     const os = host()
 
     await expect(openLink({ href: 'file://remote-host/share/file.pdf' }, os)).rejects.toMatchObject({
@@ -76,6 +80,14 @@ describe('openLink', () => {
       message: 'invalid local file link',
     })
     expect(os.openPath).not.toHaveBeenCalled()
+  })
+
+  it.runIf(process.platform === 'win32')('on Windows a file URL with a host is a UNC path, which the OS file handler does open', async () => {
+    const os = host()
+
+    await openLink({ href: 'file://remote-host/share/file.pdf' }, os)
+
+    expect(os.openPath).toHaveBeenCalledExactlyOnceWith('\\\\remote-host\\share\\file.pdf')
   })
 
   it('turns an external-handler rejection into a structured IO failure', async () => {
@@ -95,7 +107,7 @@ describe('openLink', () => {
     await expect(openLink({ href: 'missing.pdf', sourcePath: '/vault/Note.md' }, os)).rejects.toMatchObject({
       code: 'IO_ERROR',
       message: 'The file does not exist',
-      path: '/vault/missing.pdf',
+      path: path.resolve('/vault/missing.pdf'),
     })
   })
 })

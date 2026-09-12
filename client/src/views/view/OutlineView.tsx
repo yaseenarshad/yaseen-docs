@@ -1,3 +1,4 @@
+import { basename } from '../../lib/paths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { IndexRecord } from '@shared/types'
 import type { WikilinkNav } from '../../editor/wikilink/wikilinkClick'
@@ -117,7 +118,7 @@ export function OutlineView({
   const [lossy, setLossy] = useState(false)
   /** The un-tag queue: one sheet at a time, in the order the edit dropped them. */
   const [pending, setPending] = useState<readonly IndexRecord[]>([])
-  const folderPageName = folderPagePath.slice(folderPagePath.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+  const folderPageName = basename(folderPagePath).replace(/\.md$/i, '')
   // THE shared resolver, rooted (YAZ-846): keyed per records identity then per root, so this is
   // the very instance the wikilink decorations and backlinks hold — and a link line or a
   // `folder_pages` entry written as an absolute `<root>/…` path resolves here as it does there.

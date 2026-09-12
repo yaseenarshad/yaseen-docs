@@ -1,9 +1,9 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GIT_TIMEOUT_CODE, git, type GitResult } from './exec'
-import { makeBareRemote, makeGitRepo, requireGit, wireOrigin, type BareRemote, type GitRepo } from './gitFixture'
+import { type BareRemote, type GitRepo, makeBareRemote, makeGitRepo, removeTempDir, requireGit, wireOrigin } from './gitFixture'
 import { classifyGitFailure, commitMessage, syncPass } from './sync'
 
 /**
@@ -52,7 +52,7 @@ async function remoteHead(repo: GitRepo, remote: BareRemote): Promise<string> {
 async function secondClone(remote: BareRemote): Promise<string> {
   const bin = await requireGit()
   const dir = await mkdtemp(path.join(tmpdir(), 'mdapp-clone-'))
-  cleanups.push(() => rm(dir, { recursive: true, force: true }))
+  cleanups.push(() => removeTempDir(dir))
   expect((await git(bin, tmpdir(), ['clone', remote.url, dir])).code).toBe(0)
   for (const cfg of [
     ['user.name', 'other'],
@@ -146,7 +146,7 @@ describe('syncPass', () => {
 
   it('reports a plain directory as off', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'mdapp-nosync-'))
-    cleanups.push(() => rm(dir, { recursive: true, force: true }))
+    cleanups.push(() => removeTempDir(dir))
     expect(await syncPass(dir)).toEqual({ root: dir, state: 'off', repo: { remoteUrl: null, branch: null } })
   })
 

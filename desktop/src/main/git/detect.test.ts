@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { detectRepo } from './detect'
-import { makeBareRemote, makeGitRepo, requireGit, wireOrigin, type GitRepo } from './gitFixture'
+import { type GitRepo, makeBareRemote, makeGitRepo, removeTempDir, requireGit, wireOrigin } from './gitFixture'
 
 let bin: string
 beforeAll(async () => {
@@ -33,7 +33,7 @@ async function committedRepo(): Promise<GitRepo> {
 describe('detectRepo', () => {
   it('reports a plain directory as not a repo', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'mdapp-norepo-'))
-    cleanups.push(() => rm(dir, { recursive: true, force: true }))
+    cleanups.push(() => removeTempDir(dir))
     expect(await detectRepo(bin, dir)).toEqual({ isRepo: false, remoteUrl: null, branch: null, dirty: false, dirtyFiles: [] })
   })
 

@@ -6,8 +6,9 @@
  * under vitest with fakes.
  */
 import { randomUUID } from 'node:crypto'
-import { posix } from 'node:path'
+import { dirname } from 'node:path'
 import { fileKind } from '@shared/fileKind'
+import { isUnder, samePath } from '@shared/paths'
 import { defaultRightPanelIdentity, type OpenWindowOptions, type RecentRoots, type WindowBounds, type WindowEntry } from '@shared/types'
 import { CH } from '../channels'
 import type { Store } from './store'
@@ -149,14 +150,9 @@ const sameBounds = (a: WindowBounds, b: WindowBounds): boolean => a.x === b.x &&
 
 export type LinkTarget = { kind: 'existing'; id: string } | { kind: 'new'; root: string; file: string }
 
-/** Trailing slash off (never off `/` itself), so `/v` and `/v/` name the same root. */
-const stripSlash = (p: string): string => (p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p)
-
-/** `root` is an ancestor directory of `path` (or its dirname) — by segment, so `/a/b` never contains `/a/bc/x.md`. */
-const rootContains = (root: string, path: string): boolean => {
-  const r = stripSlash(root)
-  return path.startsWith(r === '/' ? '/' : r + '/') && path.length > r.length + 1
-}
+// Containment (`isUnder`) and root equality (`samePath`) come from `@shared/paths`: by segment, so
+// `/a/b` never contains `/a/bc/x.md`; trailing-slash blind, so `/v` and `/v/` name the same root;
+// and separator- and case-tolerant on Windows, so `C:\v\a.md` is found under the window rooted at `C:\v`.
 
 /**
  * Where a `yaseendocs://` link to `path` should land: (1) the open window whose root contains
@@ -171,19 +167,19 @@ export function resolveLinkTarget(
   recents: RecentRoots,
   rootOverride?: string | null,
 ): LinkTarget {
-  if (rootOverride != null && rootContains(rootOverride, path)) {
-    const exact = windows.find((w) => w.root !== null && stripSlash(w.root) === stripSlash(rootOverride))
+  if (rootOverride != null && isUnder(rootOverride, path)) {
+    const exact = windows.find((w) => w.root !== null && samePath(w.root, rootOverride))
     return exact === undefined ? { kind: 'new', root: rootOverride, file: path } : { kind: 'existing', id: exact.id }
   }
   let best: { id: string; rootLength: number } | undefined
   for (const w of windows) {
-    if (w.root === null || !rootContains(w.root, path)) continue
+    if (w.root === null || !isUnder(w.root, path)) continue
     if (best === undefined || w.root.length > best.rootLength) best = { id: w.id, rootLength: w.root.length }
   }
   if (best !== undefined) return { kind: 'existing', id: best.id }
-  const recent = recents.find((r) => rootContains(r.path, path))
+  const recent = recents.find((r) => isUnder(r.path, path))
   if (recent !== undefined) return { kind: 'new', root: recent.path, file: path }
-  return { kind: 'new', root: posix.dirname(path), file: path }
+  return { kind: 'new', root: dirname(path), file: path }
 }
 
 // ---------- the manager ----------
@@ -359,7 +355,7 @@ export function createWindowManager(store: Store, host: WindowHost): WindowManag
       if (win === undefined || win.isDestroyed()) {
         // A stored entry with no live window (mid-close race): fall back to a fresh window on its root.
         const entry = state.windows.find((w) => w.id === target.id)
-        openWindow({ root: entry?.root ?? posix.dirname(path), file: path })
+        openWindow({ root: entry?.root ?? dirname(path), file: path })
         return
       }
       focusWindow(win)

@@ -1,11 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { GithubSyncStatus, WatchEvent } from '@shared/types'
 import { git } from './exec'
-import { makeBareRemote, makeGitRepo, requireGit, wireOrigin, type GitRepo } from './gitFixture'
+import { type GitRepo, makeBareRemote, makeGitRepo, removeTempDir, requireGit, wireOrigin } from './gitFixture'
 import { createGitSync, type GitSyncHost, type GitSyncManager } from './manager'
 import { syncPass } from './sync'
 
@@ -61,7 +61,7 @@ async function twoClonesOneRemote(): Promise<{ bin: string; remoteUrl: string; a
   await wireOrigin(a, remote)
   await a.run(['push', '-u', 'origin', 'HEAD'])
   const bDir = await mkdtemp(path.join(tmpdir(), 'yaz1081-clone-'))
-  cleanups.push(() => rm(bDir, { recursive: true, force: true }))
+  cleanups.push(() => removeTempDir(bDir))
   const clone = await git(bin, tmpdir(), ['clone', remote.url, bDir])
   expect(clone.code).toBe(0)
   for (const cfg of [['user.name', 'other'], ['user.email', 'other@example.invalid'], ['commit.gpgsign', 'false']]) {

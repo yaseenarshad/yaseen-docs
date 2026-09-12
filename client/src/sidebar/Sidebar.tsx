@@ -13,7 +13,7 @@ import type { ResolveLink, WikilinkResolveSource } from '../editor/wikilink/wiki
 import type { ViewOnlyLinkSource } from '../editor/wikilink/viewOnlyLinkSource'
 import type { WatchSource } from '../hooks/useWatch'
 import { focusOpenDocument } from '../lib/focusHandoff'
-import { basename, stripExt } from '../lib/paths'
+import { basename, isUnder, stripExt, stripTrailingSep } from '../lib/paths'
 import { storage } from '../lib/storage'
 import { linkNames } from '../links/completion'
 import { FOLDER_PAGE_KEY, FOLDER_PAGES_KEY, folderPagesLookup, isFolderPage } from '../links/folderPages'
@@ -540,7 +540,7 @@ export function Sidebar({
   useEffect(() => {
     if (tree === null || validated.current) return
     validated.current = true
-    if (activeFile !== null && activeFile.startsWith(`${root.replace(/\/+$/, '')}/`) && !treeHasFile(tree.tree, activeFile))
+    if (activeFile !== null && isUnder(root, activeFile) && !treeHasFile(tree.tree, activeFile))
       onFileMissing()
   }, [tree, activeFile, root, onFileMissing])
 
@@ -558,7 +558,7 @@ export function Sidebar({
   useEffect(() => {
     if (activeFile === lastActive.current) return
     lastActive.current = activeFile
-    if (activeFile === null || !activeFile.startsWith(`${root.replace(/\/+$/, '')}/`)) return
+    if (activeFile === null || !isUnder(root, activeFile)) return
     if (treeRef.current !== null && treeHasFile(treeRef.current.tree, activeFile)) return
     let cancelled = false // the activation moved on (or the sidebar unmounted): the probe's verdict is stale
     api.tree(root).then(
@@ -618,7 +618,7 @@ export function Sidebar({
         // root" everywhere else here (`targetDirFor` sends "New note" there), and VS Code's
         // empty-Explorer menu does the same. Trailing separators are stripped so the copied
         // bytes match the root the rest of the app uses.
-        copyPath: node?.path ?? root.replace(/\/+$/, ''),
+        copyPath: node?.path ?? stripTrailingSep(root),
         // Both plural fields resolve to the ONE list read above — and stay separate fields
         // anyway, which is exactly what the doctrine asks of items that agree today.
         copyPaths: plural,
@@ -631,8 +631,8 @@ export function Sidebar({
         newWindowPath: filePath,
         renamePath: node?.path ?? null,
         deletePath: node?.path ?? null,
-        revealPath: node?.path ?? root.replace(/\/+$/, ''),
-        openVsCodePath: node?.path ?? root.replace(/\/+$/, ''),
+        revealPath: node?.path ?? stripTrailingSep(root),
+        openVsCodePath: node?.path ?? stripTrailingSep(root),
         folderPagePath: notePath,
         folderPageIsOn: notePath !== null && indexSource.records.some((r) => r.path === notePath && isFolderPage(r)),
         topicsAnchor,

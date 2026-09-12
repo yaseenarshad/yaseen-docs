@@ -8,7 +8,7 @@ import { CH } from '../channels'
 import type { GitSyncManager } from './git/manager'
 import { registerIpc } from './ipc'
 import { registerClipboardIpc } from './ipc/clipboard'
-import { createLinkQueue } from './linkQueue'
+import { createLinkQueue, fileArgs } from './linkQueue'
 import { openLink } from './fs/openLink'
 import { buildContextMenuTemplate, buildMenuTemplate, createMenuHandlers, pickMenuTargetWindow, subscribeMenuRebuild } from './menu'
 import { createStore } from './store'
@@ -26,10 +26,13 @@ applyUserDataOverride(app, process.env.YASEEN_DOCS_USER_DATA_DIR)
 const isPrimaryInstance = app.requestSingleInstanceLock()
 if (!isPrimaryInstance) app.quit()
 app.on('second-instance', (_event, argv) => {
-  // Windows/Linux deliver a clicked yaseendocs:// link as an argv entry of the second launch.
+  // Windows/Linux deliver a clicked yaseendocs:// link as an argv entry of the second launch, and
+  // Explorer's "Open with" / a double-clicked `.md` the same way, as a plain path (E2 off-mac).
   const urls = argv.filter((arg) => arg.startsWith('yaseendocs://'))
-  if (urls.length > 0) {
+  const files = fileArgs(argv)
+  if (urls.length > 0 || files.length > 0) {
     for (const url of urls) links.push(url)
+    for (const file of files) links.push(fileLink(file))
     return // routing focuses (or opens) the right window itself
   }
   const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
@@ -66,6 +69,9 @@ app.on('open-file', (event, path) => {
   event.preventDefault()
   links.push(fileLink(path))
 })
+// The same E2 pipeline off-mac: a cold launch from Explorer's "Open with" carries the file as an
+// argv entry (macOS never does, it fires `open-file`), queued here exactly like a link until `flush()`.
+for (const file of fileArgs(process.argv)) links.push(fileLink(file))
 
 // Privileged scheme: `standard` gives a real origin (history API, relative URLs), `secure` treats it
 // like https. VS Code (vscode-file://) and Obsidian (app://obsidian.md) do the same.

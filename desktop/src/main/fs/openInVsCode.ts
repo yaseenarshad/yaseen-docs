@@ -1,5 +1,6 @@
 import { shell } from 'electron'
 import { stat } from 'node:fs/promises'
+import { isWindowsPath } from '@shared/paths'
 import type { RevealResponse } from '@shared/types'
 import { BridgeFailure, fsCall, requireAbsPath } from './fsUtils'
 
@@ -30,7 +31,10 @@ export async function openInVsCode(req: unknown): Promise<RevealResponse> {
   const p = requireAbsPath((req as Record<string, unknown>).path, 'path')
   return fsCall(p, async () => {
     await stat(p) // missing → ENOENT → NOT_FOUND, so a stale row can be reported
-    await shell.openExternal(`vscode://file${p.split('/').map(encodeURIComponent).join('/')}`)
+    // Split on the path's own separator: a Windows path (`C:\v\a.md`) becomes the form VS Code
+    // documents for it, `vscode://file/C%3A/v/a.md`, with the leading `/` a drive-letter path lacks.
+    const encoded = p.split(isWindowsPath(p) ? /[\\/]/ : '/').map(encodeURIComponent).join('/')
+    await shell.openExternal(`vscode://file${encoded.startsWith('/') ? '' : '/'}${encoded}`)
     return { path: p }
   })
 }

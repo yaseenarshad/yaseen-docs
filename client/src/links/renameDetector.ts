@@ -18,7 +18,7 @@
  */
 import { fileKind } from '@shared/fileKind'
 import type { DiffFileStat, IndexRecord } from '@shared/types'
-import { basename, stripExt } from '../lib/paths'
+import { basename, relativeTo, stripExt } from '../lib/paths'
 
 /** One detected external rename/move: `oldPath` vanished while `newPath` appeared, stats equal. */
 export interface RenameHypothesis {
@@ -85,7 +85,7 @@ export function diffRecords(prev: readonly IndexRecord[], next: readonly IndexRe
 export function preRenameRecords(records: readonly IndexRecord[], root: string, oldPath: string, newPath: string): IndexRecord[] {
   if (records.some((r) => r.path === oldPath) || !records.some((r) => r.path === newPath)) return [...records]
   const oldName = basename(oldPath)
-  const oldRel = oldPath.startsWith(`${root}/`) ? oldPath.slice(root.length + 1) : oldPath
+  const oldRel = relativeTo(root, oldPath) ?? oldPath
   const folder = oldRel.includes('/') ? oldRel.slice(0, oldRel.lastIndexOf('/')) : ''
   return records.map((r) => (r.path === newPath ? { ...r, path: oldPath, name: oldName, basename: stripExt(oldName), folder } : r))
 }

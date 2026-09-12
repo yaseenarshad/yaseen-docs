@@ -23,6 +23,12 @@ beforeAll(async () => {
 afterAll(() => cleanup())
 
 const open = vi.mocked(shell.openExternal)
+
+/** The deep link for `p` on THIS OS: segments encoded, `/`-joined, a leading `/` put back before a Windows drive. */
+const link = (p: string): string => {
+  const encoded = p.split(path.sep).map(encodeURIComponent).join('/')
+  return `vscode://file${encoded.startsWith('/') ? '' : '/'}${encoded}`
+}
 beforeEach(() => {
   open.mockClear()
 })
@@ -31,24 +37,24 @@ describe('openInVsCode (YAZ-963)', () => {
   it('opens a file through the vscode:// deep link at its exact path', async () => {
     const p = path.join(root, 'b.md')
     expect(await openInVsCode({ path: p })).toEqual({ path: p })
-    expect(open).toHaveBeenCalledExactlyOnceWith(`vscode://file${p}`)
+    expect(open).toHaveBeenCalledExactlyOnceWith(link(p))
   })
 
   it('a space in the name is percent-encoded — the URL survives, the file opens', async () => {
     const p = path.join(root, 'My Note.md')
     expect(await openInVsCode({ path: p })).toEqual({ path: p })
-    expect(open).toHaveBeenCalledExactlyOnceWith(`vscode://file${path.join(root, 'My%20Note.md')}`)
+    expect(open).toHaveBeenCalledExactlyOnceWith(link(p))
   })
 
   it('opens a FOLDER the same way — VS Code decides what a folder means, not this menu', async () => {
     const p = path.join(root, 'Zeta')
     expect(await openInVsCode({ path: p })).toEqual({ path: p })
-    expect(open).toHaveBeenCalledExactlyOnceWith(`vscode://file${p}`)
+    expect(open).toHaveBeenCalledExactlyOnceWith(link(p))
   })
 
   it('opens the vault ROOT itself — the blank-space target, reveal parity', async () => {
     expect(await openInVsCode({ path: root })).toEqual({ path: root })
-    expect(open).toHaveBeenCalledExactlyOnceWith(`vscode://file${root}`)
+    expect(open).toHaveBeenCalledExactlyOnceWith(link(root))
   })
 
   it('a missing path is NOT_FOUND and openExternal is never called (the stale-row case)', async () => {
@@ -68,5 +74,16 @@ describe('openInVsCode (YAZ-963)', () => {
     expect((await failure(openInVsCode({ path: 'relative/x.md' }))).code).toBe('NOT_ABSOLUTE')
     expect((await failure(openInVsCode(null))).code).toBe('BAD_REQUEST')
     expect(open).not.toHaveBeenCalled()
+  })
+})
+
+describe('openInVsCode on Windows paths', () => {
+  it.runIf(process.platform === 'win32')('a drive-letter path becomes the vscode://file/C%3A/... form VS Code documents, never one mangled segment', async () => {
+    const p = path.join(root, 'b.md')
+    await openInVsCode({ path: p })
+    const url = open.mock.calls[0][0]
+    expect(url.startsWith('vscode://file/')).toBe(true)
+    expect(url).not.toContain('%5C') // a backslash never survives as a segment character
+    expect(url).toBe(link(p))
   })
 })

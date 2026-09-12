@@ -2,6 +2,7 @@ import { parseFrontmatter, splitFrontmatter } from '@shared/frontmatter'
 import { api, BridgeRequestError } from '../api'
 import { FOLDER_PAGES_KEY } from '../links/folderPages'
 import type { ColumnDecl, FolderPageSettings } from './folderPageSettings'
+import { dirname, joinPath } from '../lib/paths'
 
 /**
  * New-page scaffolding for folder pages (YAZ-832; 🔒 Q5/Q6 of YAZ-815). A folder page scaffolds
@@ -89,7 +90,7 @@ export async function newPageFromFolderPage(
  * one of them learned about a new setting.
  */
 export async function memberFolder(root: string, folderPagePath: string, settings: FolderPageSettings): Promise<string> {
-  if (settings.folder === undefined) return folderPagePath.slice(0, folderPagePath.lastIndexOf('/'))
+  if (settings.folder === undefined) return dirname(folderPagePath)
   return ensureFolder(root, settings.folder)
 }
 
@@ -97,7 +98,7 @@ export async function memberFolder(root: string, folderPagePath: string, setting
 export async function ensureFolder(root: string, folder: string): Promise<string> {
   let dir = root
   for (const segment of folder.split('/').filter((s) => s !== '')) {
-    dir = `${dir}/${segment}`
+    dir = joinPath(dir, segment)
     try {
       await api.createDir(dir)
     } catch (err) {

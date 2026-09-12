@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { GIT_CANDIDATES, GIT_TIMEOUT_CODE, git, gitCandidates, installGitHint, resolveGit } from './exec'
-import { requireGit } from './gitFixture'
+import { removeTempDir, requireGit } from './gitFixture'
 
 const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => {
@@ -13,7 +13,7 @@ afterEach(async () => {
 /** A temp dir that is NOT a repo — `os.tmpdir()` is never inside one, so git calls in it fail predictably. */
 async function tempDir(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'mdapp-exec-'))
-  cleanups.push(() => rm(dir, { recursive: true, force: true }))
+  cleanups.push(() => removeTempDir(dir))
   return dir
 }
 

@@ -27,6 +27,11 @@ describe('ancestorDirs', () => {
     expect(ancestorDirs('/r', '/other/x.md')).toEqual([])
     expect(ancestorDirs('/r/', '/r/a/x.md')).toEqual(['/r/a'])
   })
+
+  it('spells Windows ancestors the way the tree does, with the root’s own separator', () => {
+    expect(ancestorDirs('C:\\r', 'C:\\r\\a\\b\\x.md')).toEqual(['C:\\r\\a', 'C:\\r\\a\\b'])
+    expect(ancestorDirs('C:\\r', 'C:\\other\\x.md')).toEqual([])
+  })
 })
 
 describe('treeHasFile', () => {

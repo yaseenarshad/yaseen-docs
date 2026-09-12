@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fileLink, parseFileLink } from '@shared/links'
-import { createLinkQueue } from './linkQueue'
+import { createLinkQueue, fileArgs } from './linkQueue'
 
 // E1 (GRO-2171): macOS delivers cold-start `open-url` before `ready`; URLs queue until
 // `flush()` runs after `restoreAll()`, then flow straight through.
@@ -62,5 +62,18 @@ describe('open-file paths through the link queue', () => {
     q.flush()
     q.push(fileLink('/v/ünïcode näme.md'))
     expect(routed).toEqual(['/v/ünïcode näme.md'])
+  })
+})
+
+// E2 off-mac: Explorer's "Open with" hands the file as a plain argv entry (cold start and
+// second-instance alike), so index.ts routes every absolute supported-file argument as a link.
+describe('fileArgs', () => {
+  it('keeps absolute paths to supported files, POSIX or Windows', () => {
+    expect(fileArgs(['/Applications/Yaseen Docs.app/Contents/MacOS/Yaseen Docs', '/v/a.md'])).toEqual(['/v/a.md'])
+    expect(fileArgs(['C:\\Program Files\\Yaseen Docs\\Yaseen Docs.exe', 'C:\\v\\My note.md', 'C:\\v\\deck.pdf'])).toEqual(['C:\\v\\My note.md', 'C:\\v\\deck.pdf'])
+  })
+
+  it('ignores the executable, flags, the dev launch’s `.`, links, folders and unsupported files', () => {
+    expect(fileArgs(['C:\\x\\Yaseen Docs.exe', '--user-data-dir=C:\\tmp\\a.md', '.', 'yaseendocs://C:%5Cv%5Ca.md', 'C:\\v', 'C:\\v\\a.exe', 'rel.md'])).toEqual([])
   })
 })
